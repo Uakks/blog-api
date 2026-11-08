@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = ["F403", "F405"]  # Imports intentionally re-exported by settings.env.*

@@ -1,0 +1,27 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+settings/.env
+
+# Python / environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated data
+*.sqlite3
+*.sqlite3-journal
+logs/*
+!logs/.gitkeep
+staticfiles/
+media/
+.DS_Store
+.idea/
+.vscode/
