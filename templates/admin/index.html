@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+
+{% block content %}
+
+    <!-- 1. Statistics cards -->
+    <div style="
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    ">
+        {% for card in cards %}
+            {% component "unfold/components/card.html" with title=card.title %}
+                {% component "unfold/components/title.html" %}
+                    {{ card.value }}
+                {% endcomponent %}
+            {% endcomponent %}
+        {% endfor %}
+    </div>
+
+    <!-- 2. Posts per category chart -->
+    {% component "unfold/components/card.html" with title="Posts per category" %}
+        {% component "unfold/components/chart/bar.html" with data=posts_chart height=320 %}
+        {% endcomponent %}
+    {% endcomponent %}
+
+    <div style="margin-top: 24px;"></div>
+
+    <!-- 3. Top 5 authors table -->
+    {% component "unfold/components/card.html" with title="Top 5 authors" %}
+        {% component "unfold/components/table.html" with table=authors_table card_included=1 striped=1 %}
+        {% endcomponent %}
+    {% endcomponent %}
+
+    <div style="margin-top: 24px;"></div>
+
+    <!-- 4. Status distribution -->
+    {% component "unfold/components/card.html" with title="Post status distribution" %}
+
+        {% component "unfold/components/progress.html" with title="Published" description=published_description value=published_pct %}
+        {% endcomponent %}
+
+        <div style="margin-top: 20px;"></div>
+
+        {% component "unfold/components/progress.html" with title="Drafts" description=draft_description value=draft_pct %}
+        {% endcomponent %}
+
+    {% endcomponent %}
+
+{% endblock %}
