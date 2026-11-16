@@ -54,7 +54,6 @@ class Post(Model):
     TITLE_MAX_LENGTH = 200
     SLUG_MAX_LENGTH = 220
     STATUS_MAX_LENGTH = 9
-
     class Status(TextChoices):
         DRAFT = "draft", "Draft"
         PUBLISHED = "published", "Published"
