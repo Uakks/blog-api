@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.contrib.auth import get_user_model
 from django.utils.text import slugify
+from django.utils import timezone
 from faker import Faker
 import random, time
 
@@ -13,6 +16,47 @@ DEFAULT_USERS = 20
 DEFAULT_POSTS = 100
 DEFAULT_COMMENTS = 500
 SEED_PASSWORD = "123123123"
+DAYS_IN_YEAR = 365
+SECONDS_IN_DAY = 60 * 60 * 24
+EDIT_PROBABILITY = 0.30
+BULK_BATCH_SIZE = 500
+MAX_EDIT_DAYS = 30
+NO_CATEGORY_PROBABILITY = 0.1
+
+CATEGORY_NAMES = (
+    "Python", "Django", "Databases", "Backend", "Frontend",
+    "Web Development", "Career", "Technology",
+)
+TAG_NAMES = (
+    "python", "django", "orm", "database", "sql", "backend", "frontend",
+    "api", "rest", "testing", "deployment", "security", "tutorial",
+    "beginner", "advanced", "performance", "web", "career", "async", "tips",
+)
+
+
+def assign_post_dates(posts: list[Post], now):
+    for post in posts:
+        seconds_ago  = random.randint(0, DAYS_IN_YEAR * SECONDS_IN_DAY)
+        post.created_at = now - timedelta(seconds=seconds_ago)
+        post.updated_at = post.created_at
+
+        if random.random() < EDIT_PROBABILITY:
+            days_available = min(MAX_EDIT_DAYS, seconds_ago // SECONDS_IN_DAY)
+            if days_available >= 1:
+                post.updated_at = post.created_at + timedelta(days=random.randint(1, days_available))
+
+    if posts:
+        Post.objects.bulk_update(posts, ["created_at", "updated_at"], batch_size=BULK_BATCH_SIZE)
+
+def assign_comment_dates(comments: list[Comment], now):
+    for comment in comments:
+        earliest = comment.post.created_at
+        span_secs = max(0, int((now - earliest).total_seconds()))
+        comment.created_at = earliest + timedelta(seconds=random.randint(0, span_secs))
+    if comments:
+        Comment.objects.bulk_update(comments, ["created_at"], batch_size=BULK_BATCH_SIZE)
+        
+
 
 class Command(BaseCommand):
     help = "Fill the database with fake data."
@@ -30,6 +74,17 @@ class Command(BaseCommand):
         posts = options["posts"]
         comments = options["comments"]
         clear = options["clear"]
+
+        Category.objects.bulk_create(
+            [Category(name=n, slug=slugify(n)) for n in CATEGORY_NAMES],
+            ignore_conflicts=True
+        )
+        Tag.objects.bulk_create(
+            [Tag(name=n, slug=slugify(n)) for n in TAG_NAMES],
+            ignore_conflicts=True
+        )
+        categories = list[Category.objects.all()]
+        tags = list[Tag.objects.all()]
 
         if users < 0:
             raise CommandError("--users must be not negative")
@@ -57,9 +112,7 @@ class Command(BaseCommand):
         categories = list(Category.objects.all())
         tags = list(Tag.objects.all())
 
-        cur_category = None
-        if categories and random.random() >= 0.1:
-            cur_category = random.choice(categories)
+        now = timezone.now()
 
         if posts < 0:
             raise CommandError("--posts must be not negative")
@@ -88,7 +141,9 @@ class Command(BaseCommand):
                     body = fake.text(max_nb_chars=300),
                     slug = cur_slug,
                     status = "published" if random.random() < 0.7 else "draft",
-                    category = cur_category,
+                    category = (random.choice(categories)
+                                if categories and random.random() >= NO_CATEGORY_PROBABILITY
+                                else None),
                 )
 
                 selected_tags = random.sample(
@@ -99,6 +154,7 @@ class Command(BaseCommand):
                 created_posts.append(post)
 
             Post.objects.bulk_create(created_posts)
+            assign_post_dates(created_posts, now)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Posts: {posts} created"
@@ -124,7 +180,7 @@ class Command(BaseCommand):
 
             created_comments.append(comment)
             Comment.objects.bulk_create(created_comments)
-            self.style.SUCCESS(f"Created {comments} comments")
+            assign_comment_dates(created_comments, now)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Comments: {comments} created"
@@ -135,6 +191,11 @@ class Command(BaseCommand):
             User.objects.filter(is_superuser=False).delete()
             Post.objects.all().delete()
             Comment.objects.all().delete()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Database cleared"
+                )
+            )
 
         end_time = time.perf_counter()
         self.stdout.write(
